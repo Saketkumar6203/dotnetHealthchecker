@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dotnetproject-ns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnetproject-deployment
+  namespace: dotnetproject-ns
+  labels:
+    app: dotnetproject
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dotnetproject
+  template:
+    metadata:
+      labels:
+        app: dotnetproject
+    spec:
+      containers:
+        - name: dotnetproject
+          image: ghcr.io/${{ github.repository_owner }}/dotnetproject:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dotnetproject-service
+  namespace: dotnetproject-ns
+spec:
+  selector:
+    app: dotnetproject
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
