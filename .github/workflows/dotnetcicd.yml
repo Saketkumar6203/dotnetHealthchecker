@@ -91,7 +91,16 @@ jobs:
         run: dotnet restore
 
       - name: Scan dependencies for vulnerabilities
-        run: dotnet list package --vulnerable
+        run: |
+          set -o pipefail
+          echo "Scanning package vulnerabilities..."
+          vulnerabilities=$(dotnet list package --vulnerable 2>&1 || true)
+          echo "$vulnerabilities"
+          if echo "$vulnerabilities" | grep -E 'Severity: (High|Critical)' >/dev/null; then
+            echo "High or critical vulnerabilities found. Failing the job."
+            exit 1
+          fi
+          echo "No high or critical vulnerabilities found."
 
   dependency-review:
     needs: build
@@ -150,9 +159,7 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p ~/.kube
-          cat <<'EOF' > ~/.kube/config
-${{ secrets.KUBE_CONFIG_DATA }}
-EOF
+          printf '%s\n' "${{ secrets.KUBE_CONFIG_DATA }}" > ~/.kube/config
 
       - name: Deploy to Kubernetes
         run: |
