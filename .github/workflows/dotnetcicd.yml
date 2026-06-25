@@ -103,20 +103,6 @@ jobs:
           fi
           echo "No high or critical vulnerabilities found."
 
-  dependency-review:
-    needs: build
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Dependency review
-        uses: actions/dependency-review-action@v5
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          fail-on-severity: high
-
   docker:
     needs: build
     runs-on: ubuntu-latest
