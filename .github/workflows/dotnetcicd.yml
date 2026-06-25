@@ -142,7 +142,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ toLower(github.repository_owner) }}/dotnethealthchecker:latest
+          tags: ghcr.io/saketkumar6203/dotnethealthchecker:latest
 
   deploy:
     needs: docker

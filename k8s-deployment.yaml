@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: dotnetproject
-          image: ghcr.io/${{ toLower(github.repository_owner) }}/dotnethealthchecker:latest
+          image: ghcr.io/saketkumar6203/dotnethealthchecker:latest
           ports:
             - containerPort: 80
           env:
