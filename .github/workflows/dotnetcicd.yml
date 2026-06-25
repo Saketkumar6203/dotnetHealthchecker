@@ -161,7 +161,8 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p ~/.kube
-          printf '%s\n' "${{ secrets.KUBE_CONFIG_DATA }}" > ~/.kube/config
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > ~/.kube/config
+          kubectl config view
 
       - name: Deploy to Kubernetes
         run: |
