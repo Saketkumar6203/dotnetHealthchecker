@@ -148,28 +148,34 @@ jobs:
         run: |
           set -eux
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG_DATA }}" > /tmp/kubeconfig.data
+          printf '%s' "${{ secrets.KUBE_CONFIG_DATA }}" > /tmp/kubeconfig.data
           if base64 --decode /tmp/kubeconfig.data > /tmp/kubeconfig.yaml 2>/dev/null; then
             echo "KUBE_CONFIG_DATA decoded as base64"
             mv /tmp/kubeconfig.yaml ~/.kube/config
           else
-            echo "KUBE_CONFIG_DATA is raw kubeconfig"
+            echo "KUBE_CONFIG_DATA treated as raw kubeconfig"
             cat /tmp/kubeconfig.data > ~/.kube/config
           fi
           echo "--- kubeconfig preview ---"
           head -n 20 ~/.kube/config
           kubectl config view --kubeconfig ~/.kube/config
-          if kubectl config current-context --kubeconfig ~/.kube/config >/dev/null 2>&1; then
-            echo "current-context is set"
+          echo "--- clusters ---"
+          kubectl config get-clusters --kubeconfig ~/.kube/config || true
+          echo "--- contexts ---"
+          kubectl config get-contexts -o name --kubeconfig ~/.kube/config || true
+          echo "--- users ---"
+          kubectl config get-users --kubeconfig ~/.kube/config || true
+          if kubectl config get-contexts -o name --kubeconfig ~/.kube/config | grep -q .; then
+            echo "Context list found"
           else
-            echo "current-context is not set, selecting the first available context"
-            ctx=$(kubectl config get-contexts -o name --kubeconfig ~/.kube/config | head -n 1)
-            if [ -z "$ctx" ]; then
-              echo "ERROR: no contexts found in kubeconfig"
-              exit 1
-            fi
-            echo "Using context: $ctx"
-            kubectl config use-context "$ctx" --kubeconfig ~/.kube/config
+            echo "ERROR: KUBE_CONFIG_DATA contains no contexts. Ensure the secret holds a full kubeconfig with contexts."
+            exit 1
+          fi
+          if kubectl config get-clusters --kubeconfig ~/.kube/config | grep -q .; then
+            echo "Cluster list found"
+          else
+            echo "ERROR: KUBE_CONFIG_DATA contains no clusters. Ensure the secret holds a valid kubeconfig with cluster definitions."
+            exit 1
           fi
           kubectl config current-context --kubeconfig ~/.kube/config
           kubectl get namespaces --kubeconfig ~/.kube/config
