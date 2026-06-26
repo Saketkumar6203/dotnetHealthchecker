@@ -68,9 +68,17 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Verify code formatting
+      - name: Ensure dotnet-format is available
         run: |
-          dotnet tool restore || true
+          if ! dotnet tool list -g | grep -q "dotnet-format"; then
+            dotnet tool install -g dotnet-format --version 8.0.35
+          fi
+          dotnet format --version
+
+      - name: Verify code formatting
+        env:
+          PATH: $HOME/.dotnet/tools:$PATH
+        run: |
           dotnet format --verify-no-changes
 
       - name: Run static analysis
