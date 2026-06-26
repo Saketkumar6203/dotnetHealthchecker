@@ -158,12 +158,24 @@ jobs:
           fi
           echo "--- kubeconfig preview ---"
           head -n 20 ~/.kube/config
-          kubectl config view
-          kubectl config current-context
-          kubectl get namespaces
+          kubectl config view --kubeconfig ~/.kube/config
+          if kubectl config current-context --kubeconfig ~/.kube/config >/dev/null 2>&1; then
+            echo "current-context is set"
+          else
+            echo "current-context is not set, selecting the first available context"
+            ctx=$(kubectl config get-contexts -o name --kubeconfig ~/.kube/config | head -n 1)
+            if [ -z "$ctx" ]; then
+              echo "ERROR: no contexts found in kubeconfig"
+              exit 1
+            fi
+            echo "Using context: $ctx"
+            kubectl config use-context "$ctx" --kubeconfig ~/.kube/config
+          fi
+          kubectl config current-context --kubeconfig ~/.kube/config
+          kubectl get namespaces --kubeconfig ~/.kube/config
 
       - name: Deploy to Kubernetes
         run: |
           set -eux
-          kubectl apply -f k8s-deployment.yaml
-          kubectl rollout status deployment/dotnetproject-deployment -n dotnetproject-ns --timeout=120s
+          kubectl --kubeconfig ~/.kube/config apply -f k8s-deployment.yaml
+          kubectl --kubeconfig ~/.kube/config rollout status deployment/dotnetproject-deployment -n dotnetproject-ns --timeout=120s
