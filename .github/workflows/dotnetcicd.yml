@@ -42,9 +42,6 @@ jobs:
       - name: Build solution
         run: dotnet build --configuration Release --no-restore
 
-      - name: Run tests
-        run: dotnet test --configuration Release --no-build --verbosity normal
-
       - name: Publish Web API artifact
         run: |
           dotnet publish Dotnetproject.csproj --configuration Release --output ./publish --no-restore
@@ -56,12 +53,41 @@ jobs:
           name: dotnet-api-publish
           path: publish
 
-  codeql:
+  code-review:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Verify code formatting
+        run: |
+          dotnet tool restore || true
+          dotnet format --verify-no-changes
+
+      - name: Run static analysis
+        run: |
+          dotnet build --configuration Release --no-restore
+
+  security-scan:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -75,18 +101,6 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "security"
-
-  dependency-vulnerability:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
 
       - name: Restore dependencies
         run: dotnet restore
@@ -103,8 +117,26 @@ jobs:
           fi
           echo "No high or critical vulnerabilities found."
 
-  docker:
+  test:
     needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run unit tests
+        run: dotnet test --configuration Release --verbosity normal
+
+  docker:
+    needs: [build, code-review, security-scan, test]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
 
