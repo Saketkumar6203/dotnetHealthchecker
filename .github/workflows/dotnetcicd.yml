@@ -189,18 +189,33 @@ jobs:
   deploy:
     needs: docker
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'pull_request' }}
 
     steps:
+      - name: Check kubeconfig secret
+        id: kubeconfig
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          if [ -z "$KUBE_CONFIG_DATA" ]; then
+            echo "kubeconfig_available=false" >> "$GITHUB_OUTPUT"
+            echo "KUBE_CONFIG_DATA secret is not configured. Skipping deployment."
+          else
+            echo "kubeconfig_available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.kubeconfig.outputs.kubeconfig_available == 'true'
         uses: actions/checkout@v4
 
       - name: Set up kubectl
+        if: steps.kubeconfig.outputs.kubeconfig_available == 'true'
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
       - name: Configure kubeconfig
+        if: steps.kubeconfig.outputs.kubeconfig_available == 'true'
         env:
           KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
         run: |
@@ -240,6 +255,7 @@ jobs:
           kubectl get namespaces --kubeconfig "$KUBECONFIG_FILE"
 
       - name: Deploy to Kubernetes
+        if: steps.kubeconfig.outputs.kubeconfig_available == 'true'
         run: |
           set -eux
           kubectl --kubeconfig ~/.kube/config apply -f k8s-deployment.yaml
