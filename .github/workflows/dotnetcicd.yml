@@ -90,16 +90,16 @@ jobs:
 
       - name: Ensure dotnet-format is available
         run: |
-          if ! dotnet tool list -g | grep -q "dotnet-format"; then
-            dotnet tool install -g dotnet-format --version 8.0.35
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          if ! command -v dotnet-format >/dev/null 2>&1; then
+            dotnet tool install --tool-path "$HOME/.dotnet/tools" dotnet-format --version 5.1.250801
           fi
-          dotnet format --version
+          dotnet-format --version
 
       - name: Verify code formatting
-        env:
-          PATH: $HOME/.dotnet/tools:$PATH
         run: |
-          dotnet format --verify-no-changes
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet-format Dotnetproject.sln --check
 
   security-scan:
     needs: build
