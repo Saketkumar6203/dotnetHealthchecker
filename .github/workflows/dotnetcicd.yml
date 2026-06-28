@@ -213,13 +213,7 @@ jobs:
             exit 1
           fi
 
-          python3 -c 'import base64, os, pathlib; raw = os.environ.get("KUBE_CONFIG_DATA", ""); pathlib.Path("/tmp/kubeconfig.data").write_text(raw, encoding="utf-8"); decoded = None; 
-try: decoded = base64.b64decode(raw.encode("utf-8"), validate=True).decode("utf-8")
-except Exception: pass
-out = pathlib.Path("/tmp/kubeconfig.yaml")
-out.write_text(decoded if decoded and ("kind: Config" in decoded or "apiVersion:" in decoded) else raw, encoding="utf-8")
-print("Decoded base64 kubeconfig successfully." if decoded and ("kind: Config" in decoded or "apiVersion:" in decoded) else "Treating secret as raw kubeconfig content.")'
-
+          printf '%s' "$KUBE_CONFIG_DATA" > /tmp/kubeconfig.yaml
           cp /tmp/kubeconfig.yaml "$KUBECONFIG_FILE"
           chmod 600 "$KUBECONFIG_FILE"
 
