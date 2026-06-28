@@ -213,32 +213,12 @@ jobs:
             exit 1
           fi
 
-          python - <<'PY'
-import base64
-import os
-import pathlib
-import sys
-
-raw = os.environ.get("KUBE_CONFIG_DATA", "")
-if not raw:
-    print("KUBE_CONFIG_DATA is empty.")
-    sys.exit(1)
-
-path = pathlib.Path("/tmp/kubeconfig.data")
-path.write_text(raw, encoding="utf-8")
-
-try:
-    decoded = base64.b64decode(raw.encode("utf-8"), validate=True).decode("utf-8")
-except Exception:
-    decoded = None
-
-if decoded and ("kind: Config" in decoded or "apiVersion:" in decoded):
-    pathlib.Path("/tmp/kubeconfig.yaml").write_text(decoded, encoding="utf-8")
-    print("Decoded base64 kubeconfig successfully.")
-else:
-    pathlib.Path("/tmp/kubeconfig.yaml").write_text(raw, encoding="utf-8")
-    print("Treating secret as raw kubeconfig content.")
-PY
+          python3 -c 'import base64, os, pathlib; raw = os.environ.get("KUBE_CONFIG_DATA", ""); pathlib.Path("/tmp/kubeconfig.data").write_text(raw, encoding="utf-8"); decoded = None; 
+try: decoded = base64.b64decode(raw.encode("utf-8"), validate=True).decode("utf-8")
+except Exception: pass
+out = pathlib.Path("/tmp/kubeconfig.yaml")
+out.write_text(decoded if decoded and ("kind: Config" in decoded or "apiVersion:" in decoded) else raw, encoding="utf-8")
+print("Decoded base64 kubeconfig successfully." if decoded and ("kind: Config" in decoded or "apiVersion:" in decoded) else "Treating secret as raw kubeconfig content.")'
 
           cp /tmp/kubeconfig.yaml "$KUBECONFIG_FILE"
           chmod 600 "$KUBECONFIG_FILE"
