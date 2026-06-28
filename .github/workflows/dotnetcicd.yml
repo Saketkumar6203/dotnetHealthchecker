@@ -201,40 +201,69 @@ jobs:
           version: 'latest'
 
       - name: Configure kubeconfig
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
         run: |
           set -eux
           mkdir -p ~/.kube
-          printf '%s' "${{ secrets.KUBE_CONFIG_DATA }}" > /tmp/kubeconfig.data
-          if base64 --decode /tmp/kubeconfig.data > /tmp/kubeconfig.yaml 2>/dev/null; then
-            echo "KUBE_CONFIG_DATA decoded as base64"
-            mv /tmp/kubeconfig.yaml ~/.kube/config
-          else
-            echo "KUBE_CONFIG_DATA treated as raw kubeconfig"
-            cat /tmp/kubeconfig.data > ~/.kube/config
+          KUBECONFIG_FILE="$HOME/.kube/config"
+
+          if [ -z "$KUBE_CONFIG_DATA" ]; then
+            echo "ERROR: KUBE_CONFIG_DATA secret is empty. Set a valid kubeconfig secret before deploying."
+            exit 1
           fi
+
+          python - <<'PY'
+import base64
+import os
+import pathlib
+import sys
+
+raw = os.environ.get("KUBE_CONFIG_DATA", "")
+if not raw:
+    print("KUBE_CONFIG_DATA is empty.")
+    sys.exit(1)
+
+path = pathlib.Path("/tmp/kubeconfig.data")
+path.write_text(raw, encoding="utf-8")
+
+try:
+    decoded = base64.b64decode(raw.encode("utf-8"), validate=True).decode("utf-8")
+except Exception:
+    decoded = None
+
+if decoded and ("kind: Config" in decoded or "apiVersion:" in decoded):
+    pathlib.Path("/tmp/kubeconfig.yaml").write_text(decoded, encoding="utf-8")
+    print("Decoded base64 kubeconfig successfully.")
+else:
+    pathlib.Path("/tmp/kubeconfig.yaml").write_text(raw, encoding="utf-8")
+    print("Treating secret as raw kubeconfig content.")
+PY
+
+          cp /tmp/kubeconfig.yaml "$KUBECONFIG_FILE"
+          chmod 600 "$KUBECONFIG_FILE"
+
           echo "--- kubeconfig preview ---"
-          head -n 20 ~/.kube/config
-          kubectl config view --kubeconfig ~/.kube/config
+          head -n 20 "$KUBECONFIG_FILE"
+          kubectl config view --kubeconfig "$KUBECONFIG_FILE"
           echo "--- clusters ---"
-          kubectl config get-clusters --kubeconfig ~/.kube/config || true
+          kubectl config get-clusters --kubeconfig "$KUBECONFIG_FILE" || true
           echo "--- contexts ---"
-          kubectl config get-contexts -o name --kubeconfig ~/.kube/config || true
+          kubectl config get-contexts -o name --kubeconfig "$KUBECONFIG_FILE" || true
           echo "--- users ---"
-          kubectl config get-users --kubeconfig ~/.kube/config || true
-          if kubectl config get-contexts -o name --kubeconfig ~/.kube/config | grep -q .; then
-            echo "Context list found"
-          else
-            echo "ERROR: KUBE_CONFIG_DATA contains no contexts. Ensure the secret holds a full kubeconfig with contexts."
+          kubectl config get-users --kubeconfig "$KUBECONFIG_FILE" || true
+
+          if ! kubectl config get-contexts -o name --kubeconfig "$KUBECONFIG_FILE" | grep -q .; then
+            echo "ERROR: The kubeconfig contains no contexts. Ensure the secret holds a full kubeconfig with contexts."
             exit 1
           fi
-          if kubectl config get-clusters --kubeconfig ~/.kube/config | grep -q .; then
-            echo "Cluster list found"
-          else
-            echo "ERROR: KUBE_CONFIG_DATA contains no clusters. Ensure the secret holds a valid kubeconfig with cluster definitions."
+          if ! kubectl config get-clusters --kubeconfig "$KUBECONFIG_FILE" | grep -q .; then
+            echo "ERROR: The kubeconfig contains no clusters. Ensure the secret holds a valid kubeconfig with cluster definitions."
             exit 1
           fi
-          kubectl config current-context --kubeconfig ~/.kube/config
-          kubectl get namespaces --kubeconfig ~/.kube/config
+
+          kubectl config current-context --kubeconfig "$KUBECONFIG_FILE"
+          kubectl get namespaces --kubeconfig "$KUBECONFIG_FILE"
 
       - name: Deploy to Kubernetes
         run: |
