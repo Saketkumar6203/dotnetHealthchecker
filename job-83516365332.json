@@ -1,0 +1,84 @@
+﻿{
+    "id":  83516365332,
+    "run_id":  28194062048,
+    "workflow_name":  ".NET CI/CD",
+    "head_branch":  "main",
+    "run_url":  "https://api.github.com/repos/Saketkumar6203/dotnetHealthchecker/actions/runs/28194062048",
+    "run_attempt":  1,
+    "node_id":  "CR_kwDOTEODcM8AAAATcfaaFA",
+    "head_sha":  "2f0e686169cd15ef87c3f10b427d711c6538dff0",
+    "url":  "https://api.github.com/repos/Saketkumar6203/dotnetHealthchecker/actions/jobs/83516365332",
+    "html_url":  "https://github.com/Saketkumar6203/dotnetHealthchecker/actions/runs/28194062048/job/83516365332",
+    "status":  "completed",
+    "conclusion":  "failure",
+    "created_at":  "2026-06-25T19:10:00Z",
+    "started_at":  "2026-06-25T19:10:07Z",
+    "completed_at":  "2026-06-25T19:10:11Z",
+    "name":  "deploy",
+    "steps":  [
+                  {
+                      "name":  "Set up job",
+                      "status":  "completed",
+                      "conclusion":  "success",
+                      "number":  1,
+                      "started_at":  "2026-06-25T19:10:07Z",
+                      "completed_at":  "2026-06-25T19:10:08Z"
+                  },
+                  {
+                      "name":  "Checkout repository",
+                      "status":  "completed",
+                      "conclusion":  "success",
+                      "number":  2,
+                      "started_at":  "2026-06-25T19:10:08Z",
+                      "completed_at":  "2026-06-25T19:10:09Z"
+                  },
+                  {
+                      "name":  "Set up kubectl",
+                      "status":  "completed",
+                      "conclusion":  "success",
+                      "number":  3,
+                      "started_at":  "2026-06-25T19:10:09Z",
+                      "completed_at":  "2026-06-25T19:10:09Z"
+                  },
+                  {
+                      "name":  "Configure kubeconfig",
+                      "status":  "completed",
+                      "conclusion":  "success",
+                      "number":  4,
+                      "started_at":  "2026-06-25T19:10:09Z",
+                      "completed_at":  "2026-06-25T19:10:09Z"
+                  },
+                  {
+                      "name":  "Deploy to Kubernetes",
+                      "status":  "completed",
+                      "conclusion":  "failure",
+                      "number":  5,
+                      "started_at":  "2026-06-25T19:10:09Z",
+                      "completed_at":  "2026-06-25T19:10:09Z"
+                  },
+                  {
+                      "name":  "Post Checkout repository",
+                      "status":  "completed",
+                      "conclusion":  "success",
+                      "number":  10,
+                      "started_at":  "2026-06-25T19:10:09Z",
+                      "completed_at":  "2026-06-25T19:10:09Z"
+                  },
+                  {
+                      "name":  "Complete job",
+                      "status":  "completed",
+                      "conclusion":  "success",
+                      "number":  11,
+                      "started_at":  "2026-06-25T19:10:09Z",
+                      "completed_at":  "2026-06-25T19:10:09Z"
+                  }
+              ],
+    "check_run_url":  "https://api.github.com/repos/Saketkumar6203/dotnetHealthchecker/check-runs/83516365332",
+    "labels":  [
+                   "ubuntu-latest"
+               ],
+    "runner_id":  1000000036,
+    "runner_name":  "GitHub Actions 1000000036",
+    "runner_group_id":  0,
+    "runner_group_name":  "GitHub Actions"
+}
