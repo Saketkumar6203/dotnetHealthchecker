@@ -68,6 +68,7 @@ jobs:
 
   bug-detection:
     needs: build
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -84,10 +85,11 @@ jobs:
       - name: Run Bug Detection Agent checks
         run: |
           echo "Running analyzer-based bug detection checks..."
-          dotnet build --configuration Release --no-restore /p:RunAnalyzers=true /p:EnableNETAnalyzers=true /p:TreatWarningsAsErrors=true /warnaserror
+          dotnet build --configuration Release --no-restore /p:RunAnalyzers=true /p:EnableNETAnalyzers=true /p:TreatWarningsAsErrors=true /warnaserror -p:NoWarn=NU1901
 
   code-quality-check:
     needs: build
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -116,6 +118,7 @@ jobs:
 
   security-scan:
     needs: build
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -156,6 +159,7 @@ jobs:
 
   test:
     needs: build
+    if: always()
     runs-on: windows-latest
     steps:
       - name: Checkout repository

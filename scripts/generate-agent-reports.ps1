@@ -48,10 +48,10 @@ foreach ($file in $agentFiles) {
     $reportLines = @()
     $reportLines += "# $name Report"
     $reportLines += ''
-    $reportLines += "Source file: `$($file.Name)`"
+    $reportLines += "Source file: $($file.Name)"
 
     if ($job) {
-        $reportLines += "Pipeline job: `$job`"
+        $reportLines += "Pipeline job: $job"
     } else {
         $reportLines += 'Pipeline role: workspace development assistant only'
     }
