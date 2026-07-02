@@ -48,16 +48,19 @@ jobs:
           echo "artifact_path=publish" >> $GITHUB_OUTPUT
 
       - name: Generate agent report files
+        if: always()
         run: |
           pwsh .\scripts\generate-agent-reports.ps1
 
       - name: Upload build artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-api-publish
           path: publish
 
       - name: Upload agent report artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: agent-report-files
