@@ -77,7 +77,7 @@ jobs:
 
       - name: Generate bug-detection detailed report
         if: always()
-        run: pwsh -NoProfile -File .\scripts\parse-bug-detection.ps1 -InputFile bug-detection-output.txt -Output artifacts/bug-detection.detailed.md
+        run: pwsh -NoProfile -File ./scripts/parse-bug-detection.ps1 -InputFile bug-detection-output.txt -Output artifacts/bug-detection.detailed.md
 
       - name: Upload bug-detection detailed report
         if: always()
@@ -159,7 +159,7 @@ jobs:
 
       - name: Generate security-scan detailed report
         if: always()
-        run: pwsh -NoProfile -File .\scripts\parse-security-scan.ps1 -InputFile security-scan-output.txt -Output artifacts/security-scan.detailed.md
+        run: pwsh -NoProfile -File ./scripts/parse-security-scan.ps1 -InputFile security-scan-output.txt -Output artifacts/security-scan.detailed.md
 
       - name: Upload security-scan detailed report
         if: always()
@@ -189,7 +189,7 @@ jobs:
 
       - name: Generate test detailed report
         if: always()
-        run: pwsh -NoProfile -File .\scripts\parse-test.ps1 -InputFile test-output.txt -Output artifacts/test.detailed.md
+        run: pwsh -NoProfile -File ./scripts/parse-test.ps1 -InputFile test-output.txt -Output artifacts/test.detailed.md
 
       - name: Upload test detailed report
         if: always()
