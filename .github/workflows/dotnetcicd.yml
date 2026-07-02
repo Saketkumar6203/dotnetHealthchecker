@@ -85,7 +85,18 @@ jobs:
       - name: Run Bug Detection Agent checks
         run: |
           echo "Running analyzer-based bug detection checks..."
-          dotnet build --configuration Release --no-restore /p:RunAnalyzers=true /p:EnableNETAnalyzers=true /p:TreatWarningsAsErrors=true /warnaserror -p:NoWarn=NU1901
+          pwsh -NoProfile -Command "dotnet build --configuration Release --no-restore /p:RunAnalyzers=true /p:EnableNETAnalyzers=true /p:TreatWarningsAsErrors=true /warnaserror -p:NoWarn=NU1901 2>&1 | Tee-Object -FilePath bug-detection-output.txt; exit $LASTEXITCODE"
+
+      - name: Generate bug-detection detailed report
+        if: always()
+        run: pwsh -NoProfile -File .\scripts\parse-bug-detection.ps1 -InputFile bug-detection-output.txt -Output artifacts/bug-detection.detailed.md
+
+      - name: Upload bug-detection detailed report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bug-detection-detailed
+          path: artifacts/bug-detection.detailed.md
 
   code-quality-check:
     needs: build
@@ -149,13 +160,25 @@ jobs:
         run: |
           set -o pipefail
           echo "Scanning package vulnerabilities..."
-          vulnerabilities=$(dotnet list package --vulnerable 2>&1 || true)
+          dotnet list package --vulnerable 2>&1 | tee security-scan-output.txt || true
+          vulnerabilities=$(cat security-scan-output.txt || true)
           echo "$vulnerabilities"
           if echo "$vulnerabilities" | grep -E 'Severity: (High|Critical)' >/dev/null; then
             echo "High or critical vulnerabilities found. Failing the job."
             exit 1
           fi
           echo "No high or critical vulnerabilities found."
+
+      - name: Generate security-scan detailed report
+        if: always()
+        run: pwsh -NoProfile -File .\scripts\parse-security-scan.ps1 -InputFile security-scan-output.txt -Output artifacts/security-scan.detailed.md
+
+      - name: Upload security-scan detailed report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-detailed
+          path: artifacts/security-scan.detailed.md
 
   test:
     needs: build
@@ -174,7 +197,18 @@ jobs:
         run: dotnet restore
 
       - name: Run unit tests
-        run: dotnet test --configuration Release --verbosity normal
+        run: pwsh -NoProfile -Command "dotnet test --configuration Release --verbosity normal 2>&1 | Tee-Object -FilePath test-output.txt; exit $LASTEXITCODE"
+
+      - name: Generate test detailed report
+        if: always()
+        run: pwsh -NoProfile -File .\scripts\parse-test.ps1 -InputFile test-output.txt -Output artifacts/test.detailed.md
+
+      - name: Upload test detailed report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-detailed
+          path: artifacts/test.detailed.md
 
   dotnet-agent:
     needs: build
