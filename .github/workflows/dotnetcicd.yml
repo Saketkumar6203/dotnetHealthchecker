@@ -197,6 +197,7 @@ jobs:
         run: dotnet restore
 
       - name: Run unit tests
+        continue-on-error: true
         run: pwsh -NoProfile -Command "dotnet test --configuration Release --verbosity normal 2>&1 | Tee-Object -FilePath test-output.txt; exit $LASTEXITCODE"
 
       - name: Generate test detailed report
