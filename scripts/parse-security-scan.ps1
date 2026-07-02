@@ -1,10 +1,13 @@
-$ErrorActionPreference = 'Stop'
-param(
+﻿param(
     [string]$InputFile = 'security-scan-output.txt',
     [string]$Output = 'artifacts/security-scan.detailed.md'
 )
 
+$ErrorActionPreference = 'Stop'
+
 if (-Not (Test-Path $InputFile)) { New-Item -Path $InputFile -ItemType File -Force | Out-Null }
+$outputDir = Split-Path -Parent $Output
+if ($outputDir -and -Not (Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
 
 $content = Get-Content -Path $InputFile -Raw
 

@@ -47,24 +47,12 @@ jobs:
           dotnet publish Dotnetproject.csproj --configuration Release --output ./publish --no-restore
           echo "artifact_path=publish" >> $GITHUB_OUTPUT
 
-      - name: Generate agent report files
-        if: always()
-        run: |
-          pwsh .\scripts\generate-agent-reports.ps1
-
       - name: Upload build artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-api-publish
           path: publish
-
-      - name: Upload agent report artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-report-files
-          path: artifacts
 
   bug-detection:
     needs: build
@@ -197,8 +185,7 @@ jobs:
         run: dotnet restore
 
       - name: Run unit tests
-        continue-on-error: true
-        run: pwsh -NoProfile -Command "dotnet test --configuration Release --verbosity normal 2>&1 | Tee-Object -FilePath test-output.txt; exit $LASTEXITCODE"
+        run: pwsh -NoProfile -Command "dotnet test .\Dotnetproject.Tests\Dotnetproject.Tests.csproj --configuration Release --verbosity normal --no-restore 2>&1 | Tee-Object -FilePath test-output.txt; exit $LASTEXITCODE"
 
       - name: Generate test detailed report
         if: always()
@@ -211,31 +198,8 @@ jobs:
           name: test-detailed
           path: artifacts/test.detailed.md
 
-  dotnet-agent:
-    needs: build
-    if: always()
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Run dotnet Agent actions
-        run: |
-          pwsh -NoProfile -ExecutionPolicy Bypass .\scripts\dotnet-agent-run.ps1
-
-      - name: Upload dotnet agent artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dotnet-agent-report
-          path: artifacts/dotnet-agent.execution.md
-
   docker:
-    needs: [build, bug-detection, code-quality-check, security-scan, test, dotnet-agent]
+    needs: [build, bug-detection, code-quality-check, security-scan, test]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
 
