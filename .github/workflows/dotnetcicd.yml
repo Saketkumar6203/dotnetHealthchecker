@@ -47,11 +47,21 @@ jobs:
           dotnet publish Dotnetproject.csproj --configuration Release --output ./publish --no-restore
           echo "artifact_path=publish" >> $GITHUB_OUTPUT
 
+      - name: Generate agent report files
+        run: |
+          pwsh .\scripts\generate-agent-reports.ps1
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-api-publish
           path: publish
+
+      - name: Upload agent report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-report-files
+          path: artifacts
 
   bug-detection:
     needs: build

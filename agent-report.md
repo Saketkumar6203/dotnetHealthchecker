@@ -1,67 +1,106 @@
 # Agent Execution Report
 
-This file summarizes the outputs and working approach of the workspace agents for bug detection, security scanning, and testing.
+This file documents the agents that are referenced by the repository CI pipeline and explains how they are used in a human-readable way.
 
-## 1. Bug Detection Agent
+## Pipeline jobs and agent roles
 
-### What it checks
-- Runs analyzer-based .NET build checks to surface potential issue patterns during compilation.
-- Uses MSBuild analyzer settings such as `RunAnalyzers=true`, `EnableNETAnalyzers=true`, and `TreatWarningsAsErrors=true`.
-- Helps catch risky dependency or build-time problems before the application reaches later deployment stages.
+The GitHub Actions workflow `.github/workflows/dotnetcicd.yml` defines these main jobs:
 
-### Current output
-- The analyzer run reported a dependency issue:
-  - `NU1901`: Package `Moq` 4.20.0 has a known low severity vulnerability.
+1. `build`
+   - Platform: `windows-latest`
+   - Purpose: restore, build, publish, and upload the .NET application artifact.
+   - Artifact: `dotnet-api-publish` from `./publish`
 
-### How the bug was identified and resolved
-- The bug-detection agent flagged the issue during the analyzer-enabled build.
-- The root cause was a vulnerable test dependency in the project packages.
-- The fix was to update the affected package version to a safer release so the analyzer no longer reports the vulnerability.
-- After the dependency update, the bug-detection checks can pass without blocking the build.
+2. `bug-detection`
+   - Platform: `ubuntu-latest`
+   - Corresponding agent: `Bug Detection Agent` (`bug-detection.agent.md`)
+   - Purpose: run a build with analyzers enabled and fail on analyzer warnings/errors.
+   - Commands:
+     - `dotnet build --configuration Release --no-restore /p:RunAnalyzers=true /p:EnableNETAnalyzers=true /p:TreatWarningsAsErrors=true /warnaserror`
 
-### How it works
-- It executes the application build with analyzers enabled.
-- It treats analyzer findings as build-blocking issues.
-- This makes the CI pipeline fail early when quality or reliability concerns are detected.
+3. `code-quality-check`
+   - Platform: `ubuntu-latest`
+   - Purpose: ensure formatting and code style with `dotnet-format`.
+   - Commands:
+     - install or verify `dotnet-format`
+     - `dotnet-format Dotnetproject.sln --check`
 
-## 2. Security Scan Agent
+4. `security-scan`
+   - Platform: `ubuntu-latest`
+   - Corresponding agent: `Security Scan Agent` (`security-scan.agent.md`)
+   - Purpose: perform CodeQL security analysis and dependency vulnerability scanning.
+   - Steps:
+     - `github/codeql-action/init@v3`
+     - `github/codeql-action/autobuild@v3`
+     - `github/codeql-action/analyze@v3`
+     - `dotnet list package --vulnerable`
+   - Failure behavior: job fails if any high or critical vulnerabilities are detected.
 
-### What it checks
-- Runs CodeQL analysis for C# code.
-- Scans NuGet packages for vulnerable dependencies.
-- Helps identify security risks in code and package usage.
+5. `test`
+   - Platform: `windows-latest`
+   - Corresponding agent: `Test Agent` (`test.agent.md`)
+   - Purpose: execute the repository unit tests.
+   - Commands:
+     - restore dependencies
+     - `dotnet test --configuration Release --verbosity normal`
 
-### Current output
-- The dependency scan is configured to check for vulnerable NuGet packages.
-- The current dependency issue surfaced by the bug-detection build is also relevant to security review:
-  - `Moq` 4.20.0 has a known advisory.
+6. `docker`
+   - Platform: `ubuntu-latest`
+   - Purpose: build and push a Docker image after all earlier jobs pass.
+   - Conditions: runs on push to `main` or pull requests.
 
-### How it works
-- It initializes CodeQL for the C# project.
-- It performs an automated build for analysis.
-- It also runs `dotnet list package --vulnerable` to detect vulnerable packages.
-- If a high or critical vulnerability is found, the pipeline is designed to fail.
+7. `deploy`
+   - Platform: `ubuntu-latest`
+   - Purpose: deploy to Kubernetes when kubeconfig is available.
+   - Conditions: runs on push to `main` or pull request events.
 
-## 3. Test Agent
+## Agent files in this repository
 
-### What it checks
-- Executes the unit test suite for the application.
-- Verifies that the code still behaves correctly after changes.
+The repository contains these workspace agent definition files:
 
-### Current output
-- The test workflow is configured to run `dotnet test --configuration Release --verbosity normal`.
-- The current repository state is set up for unit-test execution as part of CI.
+- `bug-detection.agent.md`
+  - Agent name: `Bug Detection Agent`
+  - Role: identify likely code defects, unsafe patterns, and risky logic in .NET applications.
+  - CI usage: mapped to the `bug-detection` job.
 
-### How it works
-- It runs `dotnet test` in the CI pipeline.
-- It validates that application code and tests pass together.
-- This acts as a regression check for new changes.
+- `security-scan.agent.md`
+  - Agent name: `Security Scan Agent`
+  - Role: inspect security and vulnerability issues, configure CodeQL and dependency scanning.
+  - CI usage: mapped to the `security-scan` job.
+
+- `test.agent.md`
+  - Agent name: `Test Agent`
+  - Role: assist with unit tests, test execution, and CI test job design.
+  - CI usage: mapped to the `test` job.
+
+- `dotnet Agent.agent.md`
+  - Agent name: `dotnet Agent`
+  - Role: general .NET development assistant for project setup, debugging, and guidance.
+  - CI usage: not directly executed as a pipeline job, but available as a workspace assistant for development tasks.
+
+## What each CI agent/job does
+
+### Bug Detection Agent
+- Runs the .NET build with analyzers enabled.
+- Treats diagnostics as errors through `TreatWarningsAsErrors=true`.
+- Helps catch build-time quality issues before deployment.
+
+### Security Scan Agent
+- Uses CodeQL to analyze C# source code for security issues.
+- Scans NuGet package dependencies for vulnerabilities.
+- Fails the pipeline on high or critical vulnerability findings.
+
+### Test Agent
+- Runs the full unit test suite via `dotnet test`.
+- Verifies that application changes do not break tests.
+- Provides regression protection as part of CI.
+
+## Notes for repository artifacts
+
+- The current repo already publishes the built application artifact from `build`.
+- The actual agent-definition files are stored as Markdown files, not as CI run artifacts.
+- This report file is the human-readable summary of pipeline agent usage and is the missing artifact requested.
 
 ## Summary
 
-These agents work together to improve software quality by combining:
-- static bug detection during build analysis,
-- security scanning for code and dependency vulnerabilities,
-- automated test execution for regression protection.
-
-Together, they provide a lightweight but effective CI quality gate for this .NET application.
+The CI workflow contains explicit jobs for bug detection, security scanning, and testing. Each of those jobs is represented by a corresponding `.agent.md` file, and this report explains how those jobs are wired into the pipeline.
