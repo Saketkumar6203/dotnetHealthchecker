@@ -176,8 +176,31 @@ jobs:
       - name: Run unit tests
         run: dotnet test --configuration Release --verbosity normal
 
+  dotnet-agent:
+    needs: build
+    if: always()
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run dotnet Agent actions
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass .\scripts\dotnet-agent-run.ps1
+
+      - name: Upload dotnet agent artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-agent-report
+          path: artifacts/dotnet-agent.execution.md
+
   docker:
-    needs: [build, bug-detection, code-quality-check, security-scan, test]
+    needs: [build, bug-detection, code-quality-check, security-scan, test, dotnet-agent]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
 
