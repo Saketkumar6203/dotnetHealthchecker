@@ -54,6 +54,43 @@ jobs:
           name: dotnet-api-publish
           path: publish
 
+  sonar:
+    needs: build
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Sonar scanner
+        run: |
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet tool install --global dotnet-sonarscanner || true
+          dotnet sonarscanner --version
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run SonarQube analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+          SONAR_PROJECT_NAME: ${{ secrets.SONAR_PROJECT_NAME }}
+        run: |
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          SONAR_HOST_URL=${SONAR_HOST_URL:-https://sonarcloud.io}
+          SONAR_PROJECT_KEY=${SONAR_PROJECT_KEY:-saketkumar6203_dotnethealthchecker}
+          SONAR_PROJECT_NAME=${SONAR_PROJECT_NAME:-dotnethealthchecker}
+          dotnet sonarscanner begin /k:"$SONAR_PROJECT_KEY" /n:"$SONAR_PROJECT_NAME" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
+          dotnet build --configuration Release --no-restore
+          dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
+
   bug-detection:
     needs: build
     if: always()
