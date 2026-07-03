@@ -83,10 +83,17 @@ jobs:
           SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
           SONAR_PROJECT_NAME: ${{ secrets.SONAR_PROJECT_NAME }}
         run: |
+          set -eux
           export PATH="$HOME/.dotnet/tools:$PATH"
+          echo "PATH=$PATH"
+          which dotnet-sonarscanner || true
+          dotnet-sonarscanner --version || true
+          pwd
+          ls -la
           SONAR_HOST_URL=${SONAR_HOST_URL:-https://sonarcloud.io}
           SONAR_PROJECT_KEY=${SONAR_PROJECT_KEY:-saketkumar6203_dotnethealthchecker}
           SONAR_PROJECT_NAME=${SONAR_PROJECT_NAME:-dotnethealthchecker}
+          echo "Running: dotnet-sonarscanner begin /k:\"$SONAR_PROJECT_KEY\" /n:\"$SONAR_PROJECT_NAME\" /d:sonar.host.url=\"$SONAR_HOST_URL\" /d:sonar.login=\"[REDACTED]\""
           dotnet-sonarscanner begin /k:"$SONAR_PROJECT_KEY" /n:"$SONAR_PROJECT_NAME" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
           dotnet build --configuration Release --no-restore
           dotnet-sonarscanner end /d:sonar.login="$SONAR_TOKEN"
