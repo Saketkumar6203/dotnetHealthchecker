@@ -71,7 +71,7 @@ jobs:
         run: |
           export PATH="$HOME/.dotnet/tools:$PATH"
           dotnet tool install --global dotnet-sonarscanner || true
-          dotnet sonarscanner --version
+          dotnet-sonarscanner --version
 
       - name: Restore dependencies
         run: dotnet restore
@@ -87,9 +87,9 @@ jobs:
           SONAR_HOST_URL=${SONAR_HOST_URL:-https://sonarcloud.io}
           SONAR_PROJECT_KEY=${SONAR_PROJECT_KEY:-saketkumar6203_dotnethealthchecker}
           SONAR_PROJECT_NAME=${SONAR_PROJECT_NAME:-dotnethealthchecker}
-          dotnet sonarscanner begin /k:"$SONAR_PROJECT_KEY" /n:"$SONAR_PROJECT_NAME" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
+          dotnet-sonarscanner begin /k:"$SONAR_PROJECT_KEY" /n:"$SONAR_PROJECT_NAME" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
           dotnet build --configuration Release --no-restore
-          dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
+          dotnet-sonarscanner end /d:sonar.login="$SONAR_TOKEN"
 
   bug-detection:
     needs: build
