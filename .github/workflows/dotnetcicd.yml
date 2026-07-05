@@ -119,6 +119,17 @@ jobs:
             echo ".scannerwork/report-task.txt contents:"
             cat .scannerwork/report-task.txt | tee sonar-logs/report-task.txt
           fi
+          echo "\n## Combined Sonar Output" > sonar-logs/one.md
+          echo "\n### begin.log" >> sonar-logs/one.md
+          cat sonar-logs/begin.log >> sonar-logs/one.md
+          echo "\n### build.log" >> sonar-logs/one.md
+          cat sonar-logs/build.log >> sonar-logs/one.md
+          echo "\n### end.log" >> sonar-logs/one.md
+          cat sonar-logs/end.log >> sonar-logs/one.md
+          if [ -f sonar-logs/report-task.txt ]; then
+            echo "\n### report-task.txt" >> sonar-logs/one.md
+            cat sonar-logs/report-task.txt >> sonar-logs/one.md
+          fi
 
       - name: Upload Sonar logs
         if: always()
