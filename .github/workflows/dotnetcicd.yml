@@ -94,6 +94,17 @@ jobs:
           echo "Using SONAR_HOST_URL=$SONAR_HOST_URL"
           dotnet-sonarscanner begin /k:"Saketkumar6203_dotnetHealthchecker" /n:"dotnethealthchecker" /o:"saketkumar6203" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
 
+      - name: Debug: show .scannerwork after begin
+        run: |
+          echo "Working dir: $(pwd)"
+          ls -la
+          echo "Scanner work dir listing (immediately after begin):"
+          ls -la .scannerwork || true
+          if [ -f .scannerwork/report-task.txt ]; then
+            echo ".scannerwork/report-task.txt contents (after begin):"
+            cat .scannerwork/report-task.txt
+          fi
+
       - name: Build project for Sonar analysis
         run: dotnet build --configuration Release --no-restore
 
