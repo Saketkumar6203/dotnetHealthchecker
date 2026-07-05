@@ -97,6 +97,24 @@ jobs:
       - name: Build project for Sonar analysis
         run: dotnet build --configuration Release --no-restore
 
+      - name: SonarCloud - end analysis (dotnet-sonarscanner)
+        if: success()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -eux
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet tool list --global
+          echo "Contents of .scannerwork (before end):"
+          ls -la .scannerwork || true
+          dotnet-sonarscanner end /d:sonar.login="$SONAR_TOKEN"
+          echo "Contents of .scannerwork (after end):"
+          ls -la .scannerwork || true
+          if [ -f .scannerwork/report-task.txt ]; then
+            echo ".scannerwork/report-task.txt contents:"
+            cat .scannerwork/report-task.txt
+          fi
+
       - name: Wait for SonarCloud Quality Gate
         if: success()
         env:
