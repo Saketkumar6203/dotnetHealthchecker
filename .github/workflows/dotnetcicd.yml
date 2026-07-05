@@ -92,10 +92,14 @@ jobs:
           dotnet tool list --global
           SONAR_HOST_URL=${SONAR_HOST_URL:-https://sonarcloud.io}
           echo "Using SONAR_HOST_URL=$SONAR_HOST_URL"
-          dotnet-sonarscanner begin /k:"Saketkumar6203_dotnetHealthchecker" /n:"dotnethealthchecker" /o:"saketkumar6203" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
+          # capture begin output to file for diagnostics
+          mkdir -p sonar-logs
+          dotnet-sonarscanner begin /k:"Saketkumar6203_dotnetHealthchecker" /n:"dotnethealthchecker" /o:"saketkumar6203" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN" 2>&1 | tee sonar-logs/begin.log
 
       - name: Build project for Sonar analysis
-        run: dotnet build --configuration Release --no-restore
+        run: |
+          mkdir -p sonar-logs
+          dotnet build --configuration Release --no-restore 2>&1 | tee sonar-logs/build.log
 
       - name: SonarCloud - end analysis (dotnet-sonarscanner)
         if: success()
@@ -107,13 +111,21 @@ jobs:
           dotnet tool list --global
           echo "Contents of .scannerwork (before end):"
           ls -la .scannerwork || true
-          dotnet-sonarscanner end /d:sonar.login="$SONAR_TOKEN"
+          mkdir -p sonar-logs
+          dotnet-sonarscanner end /d:sonar.login="$SONAR_TOKEN" 2>&1 | tee sonar-logs/end.log
           echo "Contents of .scannerwork (after end):"
           ls -la .scannerwork || true
           if [ -f .scannerwork/report-task.txt ]; then
             echo ".scannerwork/report-task.txt contents:"
-            cat .scannerwork/report-task.txt
+            cat .scannerwork/report-task.txt | tee sonar-logs/report-task.txt
           fi
+
+      - name: Upload Sonar logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-logs
+          path: sonar-logs
 
       # Quality Gate polling removed to avoid blocking pipeline
 
