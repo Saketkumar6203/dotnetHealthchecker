@@ -98,6 +98,60 @@ jobs:
           dotnet build --configuration Release --no-restore
           dotnet-sonarscanner end /d:sonar.login="$SONAR_TOKEN"
 
+      - name: Wait for SonarCloud Quality Gate
+        if: success()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          set -eux
+          SONAR_HOST_URL=${SONAR_HOST_URL:-https://sonarcloud.io}
+          if [ -z "${SONAR_TOKEN}" ]; then
+            echo "SONAR_TOKEN is not set. Configure the SONAR_TOKEN secret in repository settings."
+            exit 1
+          fi
+          if [ ! -f .scannerwork/report-task.txt ]; then
+            echo ".scannerwork/report-task.txt not found. Cannot determine CE task id."
+            ls -la .scannerwork || true
+            exit 1
+          fi
+          CE_TASK_ID=$(grep '^ceTaskId=' .scannerwork/report-task.txt | cut -d= -f2)
+          if [ -z "$CE_TASK_ID" ]; then
+            echo "ceTaskId not found in report-task.txt"
+            cat .scannerwork/report-task.txt
+            exit 1
+          fi
+          echo "CE task id: $CE_TASK_ID"
+          analysisId=""
+          for i in $(seq 1 60); do
+            sleep 5
+            resp=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/ce/task?id=${CE_TASK_ID}")
+            status=$(echo "$resp" | jq -r .task.status)
+            echo "CE status: $status"
+            if [ "$status" = "SUCCESS" ]; then
+              analysisId=$(echo "$resp" | jq -r .task.analysisId)
+              break
+            fi
+            if [ "$status" = "FAILED" ] || [ "$status" = "CANCELED" ]; then
+              echo "CE task failed: $resp"
+              exit 1
+            fi
+          done
+          if [ -z "$analysisId" ]; then
+            echo "Timed out waiting for CE task to complete"
+            exit 1
+          fi
+          echo "analysisId: $analysisId"
+          qgResp=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?analysisId=${analysisId}")
+          qgStatus=$(echo "$qgResp" | jq -r .projectStatus.status)
+          echo "Quality Gate status: $qgStatus"
+          if [ "$qgStatus" != "OK" ]; then
+            echo "Quality Gate failed"
+            echo "$qgResp"
+            exit 1
+          fi
+          echo "Quality Gate passed"
+
   bug-detection:
     needs: build
     if: always()
