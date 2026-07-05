@@ -81,18 +81,20 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore
-      - name: Run SonarCloud analysis (official action)
-        uses: SonarSource/sonarcloud-github-action@v1
-        with:
-          organization: 'saketkumar6203'
-          projectKey: 'Saketkumar6203_dotnetHealthchecker'
-          projectName: 'dotnethealthchecker'
+      - name: SonarCloud - begin analysis (dotnet-sonarscanner)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          set -eux
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet tool install --global dotnet-sonarscanner || true
+          dotnet tool list --global
+          SONAR_HOST_URL=${SONAR_HOST_URL:-https://sonarcloud.io}
+          echo "Using SONAR_HOST_URL=$SONAR_HOST_URL"
+          dotnet-sonarscanner begin /k:"Saketkumar6203_dotnetHealthchecker" /n:"dotnethealthchecker" /o:"saketkumar6203" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
 
-      # Ensure analysis runs around a build when using the CLI scanner via action args
-      - name: Run Dotnet build for Sonar analysis
+      - name: Build project for Sonar analysis
         run: dotnet build --configuration Release --no-restore
 
       - name: Wait for SonarCloud Quality Gate
