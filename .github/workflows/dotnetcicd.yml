@@ -280,6 +280,19 @@ jobs:
         with:
           category: "security"
 
+      - name: Create GitHub issue for CodeQL findings
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 CodeQL Alert: Security Issues Detected',
+              body: `**Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n**Severity:** High\n\nCodeQL analysis found security issues in your code. Please review the [Security tab](${context.payload.repository.html_url}/security/code-scanning) for details and remediation steps.`,
+              labels: ['security', 'codeql']
+            });
+
       - name: Restore dependencies
         run: dotnet restore
 
@@ -306,6 +319,27 @@ jobs:
         with:
           name: security-scan-detailed
           path: artifacts/security-scan.detailed.md
+
+      - name: Create GitHub issue for package vulnerabilities
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let vulnerabilityDetails = 'Unknown';
+            try {
+              vulnerabilityDetails = fs.readFileSync('security-scan-output.txt', 'utf8');
+            } catch (e) {
+              console.log('Could not read security-scan-output.txt');
+            }
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Security Alert: High/Critical Vulnerabilities Detected in Dependencies',
+              body: `**Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n**Severity:** Critical\n\n**Details:**\n\`\`\`\n${vulnerabilityDetails}\n\`\`\`\n\n**Action Required:** Review and update vulnerable packages immediately.`,
+              labels: ['security', 'vulnerability', 'dependencies']
+            });
 
   test:
     needs: build
@@ -392,6 +426,31 @@ jobs:
         with:
           name: trivy-scan-results
           path: trivy-results.sarif
+
+      - name: Create GitHub issue for Trivy findings
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let trivyDetails = 'No details available';
+            try {
+              const sarif = JSON.parse(fs.readFileSync('trivy-results.sarif', 'utf8'));
+              const results = sarif.runs[0].results || [];
+              const criticalCount = results.filter(r => r.level === 'error').length;
+              const warningCount = results.filter(r => r.level === 'warning').length;
+              trivyDetails = `Critical: ${criticalCount}, Warning: ${warningCount}\n\n${results.slice(0, 10).map(r => `- ${r.message.text}`).join('\n')}`;
+            } catch (e) {
+              console.log('Could not parse trivy-results.sarif');
+            }
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Trivy Alert: Container Image Vulnerabilities Detected',
+              body: `**Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n**Severity:** Critical\n\n**Vulnerability Summary:**\n\`\`\`\n${trivyDetails}\n\`\`\`\n\nFor detailed results, check the [Security tab](${context.payload.repository.html_url}/security/code-scanning).`,
+              labels: ['security', 'container', 'trivy']
+            });
 
   deploy:
     needs: [docker, trivy-scan]
