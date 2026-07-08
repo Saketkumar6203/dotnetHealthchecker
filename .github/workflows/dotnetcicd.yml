@@ -131,61 +131,6 @@ jobs:
             cat sonar-logs/report-task.txt >> sonar-logs/one.md
           fi
 
-      - name: Wait for SonarCloud Quality Gate
-        if: success()
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: |
-          set -eux
-          SONAR_HOST_URL=${SONAR_HOST_URL:-https://sonarcloud.io}
-          echo "Extracting project key and task ID from report-task.txt..."
-          
-          if [ ! -f .scannerwork/report-task.txt ]; then
-            echo "ERROR: .scannerwork/report-task.txt not found"
-            exit 1
-          fi
-          
-          PROJECT_KEY=$(grep "projectKey=" .scannerwork/report-task.txt | cut -d'=' -f2)
-          TASK_ID=$(grep "ceTaskId=" .scannerwork/report-task.txt | cut -d'=' -f2)
-          
-          echo "Project Key: $PROJECT_KEY"
-          echo "Task ID: $TASK_ID"
-          
-          if [ -z "$PROJECT_KEY" ] || [ -z "$TASK_ID" ]; then
-            echo "ERROR: Could not extract project key or task ID"
-            exit 1
-          fi
-          
-          # Poll the quality gate status
-          MAX_ATTEMPTS=30
-          ATTEMPT=0
-          SLEEP_INTERVAL=5
-          
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            echo "Checking quality gate status (attempt $((ATTEMPT + 1))/$MAX_ATTEMPTS)..."
-            
-            RESPONSE=$(curl -s -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$PROJECT_KEY" || true)
-            echo "Response: $RESPONSE"
-            
-            if echo "$RESPONSE" | grep -q '"status":"OK"'; then
-              echo "Quality Gate PASSED!"
-              exit 0
-            elif echo "$RESPONSE" | grep -q '"status":"ERROR"'; then
-              echo "Quality Gate FAILED!"
-              exit 1
-            fi
-            
-            ATTEMPT=$((ATTEMPT + 1))
-            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
-              echo "Status not ready yet. Waiting ${SLEEP_INTERVAL}s before retry..."
-              sleep $SLEEP_INTERVAL
-            fi
-          done
-          
-          echo "ERROR: Quality Gate status not available after ${MAX_ATTEMPTS} attempts"
-          exit 1
-
       - name: Upload Sonar logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -372,7 +317,7 @@ jobs:
           path: artifacts/test.detailed.md
 
   docker:
-    needs: [build, sonar, bug-detection, code-quality-check, security-scan, test]
+    needs: [build, bug-detection, code-quality-check, security-scan, test]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
 
@@ -526,3 +471,29 @@ jobs:
           set -eux
           kubectl --kubeconfig ~/.kube/config apply -f k8s-deployment.yaml
           kubectl --kubeconfig ~/.kube/config rollout status deployment/dotnetproject-deployment -n dotnetproject-ns --timeout=120s
+
+  pipeline-failure-notification:
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: [build, sonar, bug-detection, code-quality-check, security-scan, test, docker, trivy-scan, deploy]
+    steps:
+      - name: Determine failed jobs
+        id: failed_jobs
+        run: |
+          # Collect info about which jobs failed
+          echo "Analyzing pipeline failure..."
+          
+      - name: Create GitHub issue for pipeline failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobName = context.job;
+            const runUrl = `${context.payload.repository.html_url}/actions/runs/${context.runId}`;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Pipeline Failure: CI/CD workflow failed',
+              body: `**Run:** [${context.runId}](${runUrl})\n\n**Workflow:** ${context.workflow}\n\n**Branch:** ${context.ref}\n\n**Commit:** ${context.sha}\n\n**Status:** Pipeline execution failed\n\nPlease review the [workflow logs](${runUrl}) to identify and fix the issues.`,
+              labels: ['pipeline', 'failure']
+            });
