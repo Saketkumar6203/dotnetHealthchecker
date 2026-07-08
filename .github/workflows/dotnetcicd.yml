@@ -225,19 +225,6 @@ jobs:
         with:
           category: "security"
 
-      - name: Create GitHub issue for CodeQL findings
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 CodeQL Alert: Security Issues Detected',
-              body: `**Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n**Severity:** High\n\nCodeQL analysis found security issues in your code. Please review the [Security tab](${context.payload.repository.html_url}/security/code-scanning) for details and remediation steps.`,
-              labels: ['security', 'codeql']
-            });
-
       - name: Restore dependencies
         run: dotnet restore
 
@@ -264,27 +251,6 @@ jobs:
         with:
           name: security-scan-detailed
           path: artifacts/security-scan.detailed.md
-
-      - name: Create GitHub issue for package vulnerabilities
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            let vulnerabilityDetails = 'Unknown';
-            try {
-              vulnerabilityDetails = fs.readFileSync('security-scan-output.txt', 'utf8');
-            } catch (e) {
-              console.log('Could not read security-scan-output.txt');
-            }
-            
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 Security Alert: High/Critical Vulnerabilities Detected in Dependencies',
-              body: `**Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n**Severity:** Critical\n\n**Details:**\n\`\`\`\n${vulnerabilityDetails}\n\`\`\`\n\n**Action Required:** Review and update vulnerable packages immediately.`,
-              labels: ['security', 'vulnerability', 'dependencies']
-            });
 
   test:
     needs: build
@@ -372,33 +338,69 @@ jobs:
           name: trivy-scan-results
           path: trivy-results.sarif
 
-      - name: Create GitHub issue for Trivy findings
-        if: failure()
+  security-alerts:
+    needs: [sonar, security-scan, trivy-scan]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download security-scan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: security-scan-detailed
+          path: security-artifacts
+        continue-on-error: true
+
+      - name: Download trivy-scan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-scan-results
+          path: security-artifacts
+        continue-on-error: true
+
+      - name: Generate unified security alerts report
+        run: pwsh -NoProfile -File ./scripts/parse-security-alerts.ps1 -CodeQLOutput "security-artifacts/security-scan.detailed.md" -PackageVulnerabilities "security-artifacts/security-scan.detailed.md" -TrivyOutput "security-artifacts/trivy-results.sarif" -Output artifacts/security-alerts.detailed.md
+        continue-on-error: true
+
+      - name: Upload unified security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-alerts-report
+          path: artifacts/security-alerts.detailed.md
+        continue-on-error: true
+
+      - name: Create GitHub issue for all security findings
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            let trivyDetails = 'No details available';
+            let reportContent = 'Security scan completed. Check artifacts for detailed report.';
+            
             try {
-              const sarif = JSON.parse(fs.readFileSync('trivy-results.sarif', 'utf8'));
-              const results = sarif.runs[0].results || [];
-              const criticalCount = results.filter(r => r.level === 'error').length;
-              const warningCount = results.filter(r => r.level === 'warning').length;
-              trivyDetails = `Critical: ${criticalCount}, Warning: ${warningCount}\n\n${results.slice(0, 10).map(r => `- ${r.message.text}`).join('\n')}`;
+              if (fs.existsSync('artifacts/security-alerts.detailed.md')) {
+                reportContent = fs.readFileSync('artifacts/security-alerts.detailed.md', 'utf8');
+              }
             } catch (e) {
-              console.log('Could not parse trivy-results.sarif');
+              console.log('Could not read security report');
             }
             
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 Trivy Alert: Container Image Vulnerabilities Detected',
-              body: `**Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n**Severity:** Critical\n\n**Vulnerability Summary:**\n\`\`\`\n${trivyDetails}\n\`\`\`\n\nFor detailed results, check the [Security tab](${context.payload.repository.html_url}/security/code-scanning).`,
-              labels: ['security', 'container', 'trivy']
-            });
+            // Only create issue if there are actual findings
+            if (reportContent.includes('Critical') || reportContent.includes('High') || reportContent.includes('error') || reportContent.includes('Vulnerabilities')) {
+              github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🚨 Unified Security Alert: Vulnerabilities Detected in Pipeline',
+                body: `**Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n**Report Type:** Consolidated Security Scan\n\n## Summary\nSecurity scans (CodeQL, Package Vulnerability, Trivy) detected findings that require attention.\n\n## Detailed Report\nSee the artifact **security-alerts-report** for the full consolidated security report.\n\n## Next Steps\n1. Review the security report in the artifacts\n2. Address issues by severity (Critical → High → Medium → Low)\n3. Update dependencies and/or application code as needed\n4. Re-run pipeline to verify fixes\n\n---\n**For detailed findings, visit:**\n- [Code Scanning](${context.payload.repository.html_url}/security/code-scanning)\n- [Dependency Scanning](${context.payload.repository.html_url}/security/dependabot)\n- [Security Overview](${context.payload.repository.html_url}/security)\n\n**Labels:** security | alerts | unified-scan`,
+                labels: ['security', 'alerts', 'unified-scan']
+              });
+            }
 
   deploy:
-    needs: [docker, trivy-scan]
+    needs: [docker, trivy-scan, security-alerts]
     runs-on: ubuntu-latest
     if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'pull_request' }}
 
@@ -475,7 +477,7 @@ jobs:
   pipeline-failure-notification:
     runs-on: ubuntu-latest
     if: failure()
-    needs: [build, sonar, bug-detection, code-quality-check, security-scan, test, docker, trivy-scan, deploy]
+    needs: [build, sonar, bug-detection, code-quality-check, security-scan, test, docker, trivy-scan, security-alerts, deploy]
     steps:
       - name: Determine failed jobs
         id: failed_jobs
